@@ -6,91 +6,101 @@ input validation, error handling, and response formatting for AWS Lambda.
 
 It keeps your Lambda handlers focused on business logic by removing repetitive I/O glue code.
 
-slat-io is intentionally small.
-It does not try to become a framework.
-Its role is to provide one clean layer that helps prevent handler bloat without sacrificing simplicity.
+slat-io is intentionally small. It does not try to become a framework.
+It helps prevent handler bloat while keeping your code simple.
 
 ## Overview
 
 AWS Lambda handlers often become bloated with repetitive code:
 
  - extracting values from event
-
  - validating string-based inputs
-
  - converting them into the required types
-
  - formatting API responses
-
  - catching and translating exceptions
 
-slat-io delegates these repetitive I/O concerns so you can keep your handler logic clean and intentional.
-
-
-# Why slat-io ?
-
-Typical AWS Lambda API handlers tend to become cluttered with repetitive code:
-
-  - parsing event objects
-
-  - validating parameters
-
-  - formatting API Gateway responses
-
-  - catching and converting exceptions
-
-  - adding metadata like request IDs
-
-slat-io removes this boilerplate and provides a clean and deterministic I/O layer.
-
-
+slat-io handles these repetitive I/O concerns so your handler logic stays clean and focused.
 
 # Features
 
-## One-line parameter validation
+## One-line parameter extraction and validation
 
+### Without slat-io
+
+```python
+def lambda_handler(event, context):
+    qs = event.get("queryStringParameters") or {}
+
+    page = qs.get("page")
+    if page is None:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "missing page"})
+        }
+
+    try:
+        page = int(page)
+    except ValueError:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "invalid page"})
+        }
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"data": {"page": page}})
+    }
 ```
-user_id = param.get_path(event, "userId", required=True, pattern=r"^user_[a-z0-9]{8}$")
+
+### With slat-io
+```python
+@api_handler
+def lambda_handler(event, context, respond):
+    page = param.get_query(event, "page", typ=int, min=1)
+
+    return respond({
+        "page": page
+    })
 ```
+
+slat-io removes repetitive parsing, validation, and response formatting so your handlers stay small and readable.
 
 ### Supports:
 
  - type casting (str, int, float, bool, list)
-
  - regex validation
-
  - value range
-
  - enum choices
-
  - automatic error responses
 
 
 ## Automatic error handling
 
-```
+The `@api_handler` decorator wraps your Lambda handler and injects
+a `respond()` helper function for building API responses.
+
+```python
 @api_handler
 def lambda_handler(event, context, respond):
+ ...
+ return respond({"message": "ok"})
 ```
 
 ### The decorator
 
   - catches API errors
-
-  - converts unexpected exceptions into 500
-
+  - converts unexpected exceptions into HTTP 500 responses
   - injects a ready-to-use response function
-
   - attaches AWS request IDs automatically
 
 
 ## Unified response format
 
-All responses follow a consistent structure.
+slat-io ensures that all API responses share a consistent **response body structure**.
 
 ### Success:
 
-```
+```json
 {
   "data": {...},
   "meta": {
@@ -102,7 +112,7 @@ All responses follow a consistent structure.
 
 ### Error:
 
-```
+```json
 {
   "error": {
     "code": "...",
@@ -116,11 +126,31 @@ All responses follow a consistent structure.
 }
 ```
 
+slat-io automatically wraps this body into the AWS Lambda proxy integration format.
+
+Example (actual Lambda return value):
+
+```json
+{
+  "statusCode": 200,
+  "headers": {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Allow-Methods": "*"
+  },
+  "body": "{...}"
+}
+```
+
+The response body is automatically JSON-encoded and enriched with metadata such as the AWS request ID and timestamp.
+
+
 # Example
 
-```
+```python
 import slatio.parameter as param
-from slatio.responder import *
+from slatio.responder import api_handler
 
 @api_handler
 def lambda_handler(event, context, respond):
@@ -128,17 +158,13 @@ def lambda_handler(event, context, respond):
     mode = param.get_query(event, "mode", choices=["debug", "release"])
 
     return respond({
-        "message": "slat-io is working!",
-        "extracted": {
-            "userId": user_id,
-            "mode": mode
-        }
+        "message": "slat-io is working!"
     })
 ```
 
 ## Validation examples
 
-```
+```python
 param.get_query(event, "page", typ=int, min=1)
 param.get_query(event, "mode", choices=["debug", "release"])
 param.get_path(event, "userId", pattern=r"^user_[a-z0-9]{8}$")
@@ -156,68 +182,33 @@ slat-io provides utilities for extracting and validating parameters from Lambda 
 
 ### Path parameters
 
-```
+```python
 user_id = param.get_path(event, "userId", required=True)
 ```
 
 ### Query parameters
 
-```
-page = param.get_query(event, "page", typ=int, min=1)
+```python
+page = param.get_query(event, "score", typ=float, min=0, max=5.0)
 ```
 
 ### Headers
 
-```
+```python
 trace_id = param.get_header(event, "X-Trace-Id", required=True)
 ```
 
 ### JSON body
 
-```
+```python
 email = param.get_json_value(event, "user.email", required=True)
 ```
-
-
-
-# Response Structure
-
-slat-io ensures your API remains professional and predictable.
-
-## Success (2xx)
-
-```
-{
-  "data": { "userId": "user_12345678", "limit": 50 },
-  "meta": {
-    "request_id": "c6af9ac6-...",
-    "timestamp": "2026-03-06T17:00:00Z"
-  }
-}
-```
-
-## Error (4xx/5xx)
-
-```
-{
-  "error": {
-    "code": "BAD_REQUEST",
-    "message": "Validation Failed",
-    "detail": "parameter 'limit': must be less than or equal to 100"
-  },
-  "meta": {
-    "request_id": "c6af9ac6-...",
-    "timestamp": "2026-03-06T17:00:05Z"
-  }
-}
-```
-
 
 # Installation
 
 slat-io is currently distributed as source code for direct use in AWS Lambda projects.
 
-Direct inclusion
+## Direct inclusion
 
 Place the slatio/ package at the top level of your Lambda deployment source:
 
