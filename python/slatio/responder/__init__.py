@@ -35,7 +35,7 @@ from .errors import (
     GatewayTimeout
 )
 
-# Explicitly define exported symbols for 'from kusabi.responder import *'
+# Explicitly define exported symbols for 'from slatio.responder import *'
 __all__ = [
     "api_handler",
     "api_response",

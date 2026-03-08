@@ -107,7 +107,7 @@ class ApiError(Exception):
         self.error_code 	= error_code
         self.message 		= message
         self.detail 		= detail
-        self.cors           = True
+        self.cors           = cors
         self.request_id 	= None 		# Injected by @api_handler
         super().__init__(message)
 
@@ -119,8 +119,8 @@ class ApiError(Exception):
             error_code=self.error_code,
             message=message or self.message,
             detail=detail or self.detail,
-            status_code=self.status_code,
+            code=self.status_code,
             request_id=self.request_id,
-            cors=cors
+            cors=self.cors
         )
 

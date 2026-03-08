@@ -58,7 +58,7 @@ def get_query(
     event: Dict[str, Any],
     key: str,
     *,
-    type: Type = None,
+    typ: Type = None,
     required: bool = False,
     min: Optional[float] = None,
     max: Optional[float] = None,

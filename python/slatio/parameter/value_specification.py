@@ -113,7 +113,7 @@ class ValueSpecification:
 
         elif self.typ is float:
             if source == InputSource.JSON:
-                if not isinstance(val, float):
+                if not ((isinstance(val, int) or isinstance(val, float)) and not isinstance(val, bool)):
                     raise BadRequest(message="Invalid Parameter", detail="value must be float")
                 if not math.isfinite(val):
                     raise BadRequest(message="Invalid Parameter", detail="value must be finite float")
@@ -153,19 +153,21 @@ class ValueSpecification:
 
         elif self.typ is int:
             if isinstance(val, bool):
-                raise BadRequest(message="Invalid Parameter" detail="value must be int")
+                raise BadRequest(message="Invalid Parameter", detail="value must be int")
             return int(val)
 
         elif self.typ is float:
             return float(val)
 
         elif self.typ is bool:
-            if val == _TRUE:
+            if isinstance(val, bool):
+                return val
+            s = str(val).lower()
+            if s in _TRUE:
                 return True
-            elif val == _FALSE:
+            if s in _FALSE:
                 return False
-            else:
-                raise BadRequest(message="Invalid Parameter", detail="value must be 'true' or 'false'")
+            raise BadRequest(message="Invalid Parameter", detail='value must be "true" or "false"')
         elif self.typ is list:
             if not isinstance(val, list):
                 raise BadRequest(message="Invalid Parameter", detail="value must be a list (array)")
@@ -224,7 +226,7 @@ class ValueSpecification:
         """
         # --- None check ---
         if val is None:
-            return None
+            return None, None
         
         if source is None:
             raise TypeError("source must be provided (InputSource.TEXT or InputSource.JSON)")

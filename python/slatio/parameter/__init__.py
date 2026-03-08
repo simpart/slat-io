@@ -22,7 +22,7 @@ from .value_specification import (
     InputSource
 )
 
-# Explicitly define exported symbols for 'from kusabi.parameter import *'
+# Explicitly define exported symbols for 'from slatio.parameter import *'
 __all__ = [
     "get_query",
     "get_path",

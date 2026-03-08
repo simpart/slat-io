@@ -4,7 +4,7 @@ A tiny I/O boundary layer for AWS Lambda.
 slat-io is a lightweight Python utility library designed to simplify
 input validation, error handling, and response formatting for AWS Lambda.
 
-It eliminates repetitive boilerplate and lets you focus purely on business logic.
+It keeps your Lambda handlers focused on business logic by removing repetitive I/O glue code.
 
 slat-io is intentionally small.
 It does not try to become a framework.
@@ -55,7 +55,7 @@ user_id = param.get_path(event, "userId", required=True, pattern=r"^user_[a-z0-9
 
 ### Supports:
 
- - type casting
+ - type casting (str, int, float, bool, list)
 
  - regex validation
 
@@ -119,8 +119,8 @@ All responses follow a consistent structure.
 # Example
 
 ```
-import kusabi.parameter as param
-from kusabi.responder import *
+import slatio.parameter as param
+from slatio.responder import *
 
 @api_handler
 def lambda_handler(event, context, respond):
@@ -139,11 +139,11 @@ def lambda_handler(event, context, respond):
 ## Validation examples
 
 ```
-param.get_query(event, "page", type=int, min=1)
+param.get_query(event, "page", typ=int, min=1)
 param.get_query(event, "mode", choices=["debug", "release"])
 param.get_path(event, "userId", pattern=r"^user_[a-z0-9]{8}$")
 param.get_header(event, "X-Request-Type", required=True)
-param.get_json_value(event, "profile.age", type=int, min=0, max=120)
+param.get_json_value(event, "profile.age", typ=int, min=0, max=120)
 ```
 
 
@@ -163,7 +163,7 @@ user_id = param.get_path(event, "userId", required=True)
 ### Query parameters
 
 ```
-page = param.get_query(event, "page", type=int, min=1)
+page = param.get_query(event, "page", typ=int, min=1)
 ```
 
 ### Headers
@@ -219,12 +219,12 @@ slat-io is currently distributed as source code for direct use in AWS Lambda pro
 
 Direct inclusion
 
-Place the kusabi/ package at the top level of your Lambda deployment source:
+Place the slatio/ package at the top level of your Lambda deployment source:
 
 ```
 your-project/
 ├── lambda_function.py
-└── slat-io/
+└── slatio/
 ```
 
 # License

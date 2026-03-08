@@ -20,10 +20,10 @@ class BadRequest(ApiError):
     def __init__(self, message: str = "Invalid Request", detail: str = None):
         super().__init__(400, "BAD_REQUEST", message, detail)
 
-class UnAuthorized(ApiError):
+class Unauthorized(ApiError):
     """401 Unauthorized: Authentication is required or has failed."""
     def __init__(self, message: str = "Authentication Failed", detail: str = None):
-        super().__init__(401, "UN_AUTHORIZED", message, detail)
+        super().__init__(401, "UNAUTHORIZED", message, detail)
 
 class Forbidden(ApiError):
     """403 Forbidden: The client does not have access rights to the content."""
