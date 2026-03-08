@@ -17,9 +17,9 @@ across the entire service.
 from .responder import ApiError, api_response
 from .decorator import api_handler
 
-# 2. Client Errors (4xx)
 # Extracted individually for a cleaner developer experience
-from .ClientError import (
+# Standardized error classes for upstream/internal failures
+from .errors import (
     BadRequest, 
     UnAuthorized, 
     Forbidden, 
@@ -28,12 +28,7 @@ from .ClientError import (
     UnprocessableEntity, 
     TooManyRequests, 
     MethodNotAllowed, 
-    UnsupportedMediaType
-)
-
-# 3. Server Errors (5xx)
-# Standardized error classes for upstream/internal failures
-from .ServerError import (
+    UnsupportedMediaType,
     InternalServerError,
     BadGateway,
     ServiceUnavailable,

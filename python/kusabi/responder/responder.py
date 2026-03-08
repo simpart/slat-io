@@ -9,41 +9,30 @@ and CORS header management.
 
 import json
 from datetime import datetime, timezone
+from typing import Any, Optional, Dict
 
-# --- Standard Success Response ---
-def api_response(body_content, code=200, request_id=None, cors: bool=True):
-    """
-    Generates a standardized API Gateway response.
+def _response(
+    body: dict[str, Any],
+    status_code: int,
+    request_id: str | None = None,
+    cors: bool = True,
+    meta_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
 
-    Success responses follow the structure:
-    {
-        "data": { ... },
-        "meta": { "request_id": "...", "timestamp": "..." }
+    meta = {
+        "request_id": request_id,
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
-    Args:
-        body_content (Any): The main payload to return under the "data" key.
-        code (int, optional): HTTP status code. Defaults to 200.
-        request_id (str, optional): The unique AWS request ID for traceability.
+    if meta_extra:
+        meta.update(meta_extra)
 
-    Returns:
-        Dict[str, Any]: A dictionary formatted for API Gateway proxy integration.
-    """
-    
-    # Structure the response with "data" and "meta" keys
-    content = {
-        "data": body_content,
-        "meta": {
-            "request_id": request_id,
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        }
-    }
+    body["meta"] = meta
 
-    # Build Headers
     headers = {
         "Content-Type": "application/json"
     }
-    
+
     if cors:
         headers.update({
             "Access-Control-Allow-Origin": "*",
@@ -51,64 +40,74 @@ def api_response(body_content, code=200, request_id=None, cors: bool=True):
             "Access-Control-Allow-Methods": "*",
         })
 
-    
     return {
-        "statusCode": 	code,
-        "headers": 		headers,
-        "body": 		json.dumps(content, ensure_ascii=False)
+        "statusCode": status_code,
+        "headers": headers,
+        "body": json.dumps(body, ensure_ascii=False),
     }
 
 
-# --- 2. Dedicated Error Response ---
-def err_response(
-    status_code: int, 
-    error_code: str, 
-    message: str, 
-    detail: Optional[str] = None, 
-    request_id: Optional[str] = None,
-    cors: bool = True
-) -> Dict[str, Any]:
-    """
-    Generates an error response directly without raising an exception.
-    
-    Error Structure:
-    {
-        "error": {
-            "code": "...",
-            "message": "...",
-            "detail": "..."
-        },
-        "meta": { "request_id": "...", "timestamp": "..." }
-    }
-    
-    Args:
-        status_code (int): HTTP status code (e.g., 400, 404, 500).
-        error_code (str): Internal application error code.
-        message (str): High-level error message.
-        detail (str, optional): Detailed error information for debugging.
-        request_id (str, optional): AWS Request ID.
-        cors (bool, optional): Enable/disable CORS headers. Defaults to True.
-    """
+def api_response(
+    data: Any,
+    code: int = 200,
+    request_id: str | None = None,
+    cors: bool = True,
+    meta_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+
     body = {
-        "error": {
-            "code": error_code,
-            "message": message,
-            "detail": detail
-        }
+        "data": data
     }
-    return api_response(body, code=status_code, request_id=request_id, cors=cors)
+
+    return _response(body, code, request_id, cors, meta_extra)
+
+
+def err_response(
+    error_code: str,
+    message: str,
+    detail: str | None = None,
+    code: int = 400,
+    request_id: str | None = None,
+    cors: bool = True,
+    meta_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+
+    error = {
+        "code": error_code,
+        "message": message,
+    }
+
+    if detail is not None:
+        error["detail"] = detail
+
+    body = {
+        "error": error
+    }
+
+    return _response(body, code, request_id, cors, meta_extra)
 
 
 # --- Base Error Class ---
 class ApiError(Exception):
     """
     Base exception class for all Kusabi-related API errors.
+
+    Kusabi errors follow a 3-layer information architecture:
+    1. error.code (Machine-Readable): 
+       A stable, uppercase string (e.g., 'INVALID_INPUT') used by clients 
+       to programmatically determine the error type.
+    2. error.message (End-User Focused): 
+       A human-readable summary intended to be displayed to the end-user.
+    3. error.detail (Developer Focused): 
+       Context-specific details, such as validation failure reasons, 
+       to assist in debugging or providing field-level feedback.
     """
-    def __init__(self, status_code, error_code, message, detail=None):
+    def __init__(self, status_code, error_code, message, detail=None, cors: bool = True):
         self.status_code 	= status_code
         self.error_code 	= error_code
         self.message 		= message
         self.detail 		= detail
+        self.cors           = True
         self.request_id 	= None 		# Injected by @api_handler
         super().__init__(message)
 

@@ -14,11 +14,10 @@ main handler focused on business logic.
 from __future__ import annotations
 
 import base64, json
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Sequence, Type
 
-from ..responder.ClientError import BadRequest
-from .value_specification import ValueSpecification
-
+from ..responder.errors import BadRequest
+from .value_specification import ValueSpecification, InputSource
 
 
 def _headers_dict(event: Dict[str, Any]) -> Dict[str, str]:
@@ -65,7 +64,7 @@ def get_query(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-) -> Union[None, str, List[str]]:
+) -> Optional[Any]:
     """
     Extracts and validates a query parameter from the Lambda event.
 
@@ -75,7 +74,7 @@ def get_query(
     Args:
         event (Dict[str, Any]): The AWS Lambda event object.
         key (str): The name of the query parameter to extract.
-        type (Type, optional): The expected Python type to cast the value. Defaults to None.
+        typ (Type, optional): The expected Python type to cast the value. Defaults to None.
         required (bool, optional): If True, raises BadRequest if the key is missing. Defaults to False.
         min (float, optional): Minimum value for numeric validation. Defaults to None.
         max (float, optional): Maximum value for numeric validation. Defaults to None.
@@ -94,7 +93,7 @@ def get_query(
         BadRequest: If the parameter is missing (when required) or fails validation.
     """
     spec = ValueSpecification(
-                typ=type,
+                typ=typ,
                 min=min,
                 max=max,
                 pattern=pattern,
@@ -128,7 +127,7 @@ def get_query(
     # --- required check（getter 側） ---
     if raw_val is None:
         if required:
-            raise BadRequest("Missing Parameter", f"{key} query parameter is required")
+            raise BadRequest(message="Missing Parameter", detail=f"{key} query parameter is required")
         return None
 
     result, error = spec.parse(raw_val)
@@ -143,13 +142,13 @@ def get_path(
     event: Dict[str, Any],
     key: str,
     *,
-    type: Type = None,
+    typ: Type = None,
     required: bool = False,
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-) -> Optional[str]:
+) -> Optional[Any]:
     """
     Extracts and validates a path parameter from the Lambda event.
 
@@ -159,7 +158,7 @@ def get_path(
     Args:
         event (Dict[str, Any]): The AWS Lambda event object.
         key (str): The name of the path parameter to extract (as defined in the API route).
-        type (Type, optional): The expected Python type to cast the value. Defaults to None.
+        typ (Type, optional): The expected Python type to cast the value. Defaults to None.
         required (bool, optional): If True, raises BadRequest if the key is missing from pathParameters. 
             Defaults to False.
         min (float, optional): Minimum value for numeric validation. Defaults to None.
@@ -177,7 +176,7 @@ def get_path(
     """
 
     spec = ValueSpecification(
-                typ=type,
+                typ=typ,
                 min=min,
                 max=max,
                 pattern=pattern,
@@ -193,7 +192,7 @@ def get_path(
     # --- Validation: Required Check ---
     if value is None:
         if required:
-            raise BadRequest("Missing Parameter", f"{key} path parameter is required")
+            raise BadRequest(message="Missing Parameter", detail=f"{key} path parameter is required")
         return None
     
     # --- Validation: Specification Match ---
@@ -208,7 +207,7 @@ def get_header(
     event: Dict[str, Any],
     key: str,
     *,
-    type: Type = None,
+    typ: Type = None,
     required: bool = False,
     min: Optional[float] = None,
     max: Optional[float] = None,
@@ -225,7 +224,7 @@ def get_header(
     Args:
         event (Dict[str, Any]): The AWS Lambda event object.
         key (str): The name of the header to extract. Case-insensitive.
-        type (Type, optional): The expected Python type to cast the value. Defaults to None.
+        typ (Type, optional): The expected Python type to cast the value. Defaults to None.
         required (bool, optional): If True, raises BadRequest if the header is missing. 
             Defaults to False.
         min (float, optional): Minimum value for numeric validation. Defaults to None.
@@ -242,7 +241,7 @@ def get_header(
     """
 
     spec = ValueSpecification(
-                typ=type,
+                typ=typ,
                 min=min,
                 max=max,
                 pattern=pattern,
@@ -253,14 +252,14 @@ def get_header(
     headers = _headers_dict(event)
     if not headers:
         if required:
-            raise BadRequest("Missing Parameter", f"{key} header is required")
+            raise BadRequest(message="Missing Parameter", detail=f"{key} header is required")
         return None
     
     # HTTP header keys are case-insensitive; looking up using lowercase key
     val = headers.get(key.lower())
     if val is None:
         if required:
-            raise BadRequest("Missing Parameter", f"{key} header is required")
+            raise BadRequest(message="Missing Parameter", detail=f"{key} header is required")
         return None
 
     # --- Validation: Specification Match ---
@@ -273,7 +272,7 @@ def get_header(
 
 
 
-_CACHE_KEY = "_kumiki"          # event内のキャッシュ領域
+_CACHE_KEY = "_slat_io"          # event内のキャッシュ領域
 _BODY_CACHE_KEY = "json_body"     # パース済みbodyのキー
 
 def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str, Any]:
@@ -284,7 +283,7 @@ def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str,
     body = _maybe_decode_body(event)
     if body is None or body == "":
         if required:
-            raise BadRequest("Missing Parameter", "body is required")
+            raise BadRequest(message="Missing Parameter", detail="body is required")
         parsed: Dict[str, Any] = {}
         cache[_BODY_CACHE_KEY] = parsed
         return parsed
@@ -292,10 +291,10 @@ def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str,
     try:
         data = json.loads(body)
     except Exception:
-        raise BadRequest("Invalid Parameter", "body must be valid json")
+        raise BadRequest(message="Invalid Parameter", detail="body must be valid json")
 
     if not isinstance(data, dict):
-        raise BadRequest("Invalid Parameter", "body value must be a json object")
+        raise BadRequest(message="Invalid Parameter", detail="body value must be a json object")
 
     cache[_BODY_CACHE_KEY] = data
     return data
@@ -315,13 +314,13 @@ def get_json_value(
     event: Dict[str, Any],
     json_path: Optional[str] = None,
     *,
-    type: Type = None,
+    typ: Type = None,
     required: bool = False,
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-) -> Any:
+) -> Optional[Any]:
     """
     Extracts and validates a value from the JSON body using dot-notation path.
 
@@ -334,7 +333,7 @@ def get_json_value(
         json_path (str, optional): The dot-separated path to the desired value 
             (e.g., "user.profile.id"). If None or empty, returns the entire 
             parsed JSON body as a dict. Defaults to None.
-        type (Type, optional): The expected Python type to cast the value. Defaults to None.
+        typ (Type, optional): The expected Python type to cast the value. Defaults to None.
         required (bool, optional): If True, raises BadRequest if the JSON body 
             is missing or the specified path does not exist. Defaults to False.
         min (float, optional): Minimum value for numeric validation. Defaults to None.
@@ -352,7 +351,7 @@ def get_json_value(
     """
 
     spec = ValueSpecification(
-                typ=type,
+                typ=typ,
                 min=min,
                 max=max,
                 pattern=pattern,
@@ -370,13 +369,13 @@ def get_json_value(
 
     if val is None:
         if required:
-            raise BadRequest("Missing Parameter", f"{json_path} is required")
+            raise BadRequest(message="Missing Parameter", detail=f"{json_path} is required")
         return None
 
     # Note: Using json_path for the error message instead of undefined 'key'
     result, error = spec.parse(val, source=InputSource.JSON)
     if error:
-        error.detail = f"parameter '{key}': {error.detail}"
+        error.detail = f"parameter '{json_path}': {error.detail}"
         raise error
 
     return result

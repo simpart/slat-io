@@ -17,7 +17,7 @@ import re, math
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence, Type, Union
 from enum import Enum
-from ..responder.ClientError import BadRequest
+from ..responder.errors import BadRequest
 
 _TRUE = {"true"}
 _FALSE = {"false"}
@@ -75,30 +75,30 @@ class ValueSpecification:
         if self.typ is int:
             if source == InputSource.JSON:
                 if not (isinstance(val, int) and not isinstance(val, bool)):
-                    raise BadRequest("Invalid Parameter", "value must be int")
+                    raise BadRequest(message="Invalid Parameter", detail="value must be int")
             else:
-                if isinstance(val, bool): # boolはintのサブクラスなので個別排除
-                    raise BadRequest("Invalid Parameter", "value must be int")
+                if isinstance(val, bool):
+                    raise BadRequest(message="Invalid Parameter", detail="value must be int")
                 if isinstance(val, int):
                     return
                 if isinstance(val, str):
                     if not val.lstrip('-').isdigit():
-                        raise BadRequest("Invalid Parameter", "value must be numeric string")
+                        raise BadRequest(message="Invalid Parameter", detail="value must be numeric string")
                     return
-                raise BadRequest("Invalid Parameter", "value must be int or numeric string")
+                raise BadRequest(message="Invalid Parameter", detail="value must be int or numeric string")
         elif self.typ is bool:
             if source == InputSource.JSON:
                 if not isinstance(val, bool):
-                    raise BadRequest("Invalid Parameter", "value must be bool")
+                    raise BadRequest(message="Invalid Parameter", detail="value must be bool")
             else:
                 if isinstance(val, bool):
-                    return  # 念のため（通常TEXTでは来ない）
+                    return
                 s = str(val)  # stripしない
                 if s not in (_TRUE | _FALSE):
-                    raise BadRequest("Invalid Parameter", 'value must be "true" or "false"')
+                    raise BadRequest(message="Invalid Parameter", detail='value must be "true" or "false"')
         elif self.typ is list:
             if not isinstance(val, list):
-                raise BadRequest("Invalid Parameter", "value must be a list (array)")
+                raise BadRequest(message="Invalid Parameter", detail="value must be a list (array)")
 #            if source == InputSource.JSON:
 #                if not isinstance(val, list):
 #                    raise BadRequest("Invalid Type", "value must be a list (array)")
@@ -114,24 +114,24 @@ class ValueSpecification:
         elif self.typ is float:
             if source == InputSource.JSON:
                 if not isinstance(val, float):
-                    raise BadRequest("Invalid Parameter", "value must be float")
+                    raise BadRequest(message="Invalid Parameter", detail="value must be float")
                 if not math.isfinite(val):
-                    raise BadRequest("Invalid Parameter", "value must be finite float")
+                    raise BadRequest(message="Invalid Parameter", detail="value must be finite float")
             else:
                 if isinstance(val, (int, float)) and not isinstance(val, bool):
                     if not math.isfinite(float(val)):
-                        raise BadRequest("Invalid Parameter", "value must be finite float")
+                        raise BadRequest(message="Invalid Parameter", detail="value must be finite float")
                     return
                 try:
                     f = float(val)
                 except Exception:
-                    raise BadRequest("Invalid Parameter", "value must be float")
+                    raise BadRequest(message="Invalid Parameter", detail="value must be float")
 
                 if not math.isfinite(f):
-                    raise BadRequest("Invalid Parameter", "value must be finite float")
+                    raise BadRequest(message="Invalid Parameter", detail="value must be finite float")
         elif self.typ is str:
             if not isinstance(val, str):
-                raise BadRequest("Invalid Parameter", "value must be string")
+                raise BadRequest(message="Invalid Parameter", detail="value must be string")
 
 
 
@@ -152,9 +152,8 @@ class ValueSpecification:
             return str(val)
 
         elif self.typ is int:
-            # _check_structure で bool 排除済みの前提だが、防御的に残してもOK
             if isinstance(val, bool):
-                raise BadRequest(detail="value must be int")
+                raise BadRequest(message="Invalid Parameter" detail="value must be int")
             return int(val)
 
         elif self.typ is float:
@@ -166,10 +165,10 @@ class ValueSpecification:
             elif val == _FALSE:
                 return False
             else:
-                raise BadRequest("Invalid Parameter", "value must be 'true' or 'false'")
+                raise BadRequest(message="Invalid Parameter", detail="value must be 'true' or 'false'")
         elif self.typ is list:
             if not isinstance(val, list):
-                raise BadRequest("Invalid Parameter", "value must be a list (array)")
+                raise BadRequest(message="Invalid Parameter", detail="value must be a list (array)")
             return val
 
         # generic callable-type conversion (チェック済みなので素直に変換)
@@ -193,19 +192,19 @@ class ValueSpecification:
 
         # choices
         if self.choices is not None and val not in self.choices:
-            raise BadRequest("Invalid Parameter", f"must be one of {list(self.choices)}")
+            raise BadRequest(message="Invalid Parameter", detail=f"must be one of {list(self.choices)}")
 
         # numeric range
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             if self.min is not None and val < self.min:
-                raise BadRequest("Invalid Parameter", f"must be greater than or equal to {self.min}")
+                raise BadRequest(message="Invalid Parameter", detail=f"must be greater than or equal to {self.min}")
             if self.max is not None and val > self.max:
-                raise BadRequest("Invalid Parameter", f"must be less than or equal to {self.max}")
+                raise BadRequest(message="Invalid Parameter", detail=f"must be less than or equal to {self.max}")
 
         # string pattern
         if isinstance(val, str):
             if self.pattern is not None and re.fullmatch(self.pattern, val) is None:
-                raise BadRequest("Invalid Parameter", f"must match the format '{self.pattern}'")
+                raise BadRequest(message="Invalid Parameter", detail=f"must match the format '{self.pattern}'")
 
         # list item_spec already validated in cast/parse via item_spec.parse()
         return True

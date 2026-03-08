@@ -1,11 +1,18 @@
 """
-Kusabi Client Error Definitions (4xx)
+Kusabi API Error Taxonomy (4xx & 5xx)
 
-This module defines a suite of exception classes for client-side errors.
-Each class is mapped to a specific HTTP status code and provides a 
-consistent machine-readable error code for the client to handle.
+This module provides a unified suite of exception classes for both client-side 
+and server-side failures. Each class is mapped to a specific HTTP status code, 
+ensuring that all API failures—from semantic validation errors to catastrophic 
+crashes—are returned as structured, machine-readable JSON rather than 
+raw stack traces.
+
+Structure:
+- Client Errors (4xx): Represent request-level issues with consistent error codes 
+  for frontend handling.
+- Server Errors (5xx): Act as the final safety net for unhandled exceptions or 
+  upstream service unavailability.
 """
-
 from .responder import ApiError
 
 class BadRequest(ApiError):
@@ -52,3 +59,24 @@ class TooManyRequests(ApiError):
     """429 Too Many Requests: The user has sent too many requests in a given amount of time."""
     def __init__(self, message: str = "Rate Limit Exceeded", detail: str = None):
         super().__init__(429, "TOO_MANY_REQUESTS", message, detail)
+
+class InternalServerError(ApiError):
+    """500 Internal Server Error: A generic error message when an unexpected condition was encountered."""
+    def __init__(self, message: str = "Internal Server Error", detail: str = None):
+        super().__init__(500, "INTERNAL_SERVER_ERROR", message, detail)
+
+class BadGateway(ApiError):
+    """502 Bad Gateway: The server received an invalid response from an upstream server."""
+    def __init__(self, message: str = "Bad Gateway", detail: str = None):
+        super().__init__(502, "BAD_GATEWAY", message, detail)
+
+class ServiceUnavailable(ApiError):
+    """503 Service Unavailable: The server is not ready to handle the request (e.g., maintenance)."""
+    def __init__(self, message: str = "Service Unavailable", detail: str = None):
+        super().__init__(503, "SERVICE_UNAVAILABLE", message, detail)
+
+class GatewayTimeout(ApiError):
+    """504 Gateway Timeout: The server acted as a gateway and timed out waiting for a response."""
+    def __init__(self, message: str = "Gateway Timeout", detail: str = None):
+        super().__init__(504, "GATEWAY_TIMEOUT", message, detail)
+

@@ -14,8 +14,8 @@ It acts as a comprehensive "safety net" that:
 import functools
 import traceback
 from typing import Any, Callable, Dict
-from .responder import api_response, ApiError
-from .ServerError import InternalServerError
+from .responder import api_response
+from .errors import ApiError, InternalServerError
 
 def api_handler(func: Callable) -> Callable:
     """
@@ -53,7 +53,10 @@ def api_handler(func: Callable) -> Callable:
         except Exception as e:
             # Safety Net 2: The "Final Fortress" against unhandled exceptions.
             # Prevents 502 Bad Gateway by returning a structured 500 Internal Server Error.
-            err = InternalServerError(detail=str(e))
+            print(f"[ERROR] Unhandled Exception: {str(e)}")
+            traceback.print_exc()
+
+            err = InternalServerError(message="An unexpected error occurred.")
             err.request_id = req_id
             # You might want to log the traceback here for internal monitoring
             # traceback.print_exc() 
