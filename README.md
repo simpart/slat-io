@@ -63,7 +63,8 @@ def lambda_handler(event, context, respond):
     })
 ```
 
-slat-io removes repetitive parsing, validation, and response formatting so your handlers stay small and readable.
+slat-io removes repetitive event parsing, parameter validation, and response formatting so your Lambda handlers stay small and readable.
+
 
 ### Supports:
 
@@ -174,17 +175,7 @@ param.get_json_value(event, "profile.age", typ=int, min=0, max=120)
 
 
 # Parameter Extraction
-
 slat-io provides utilities for extracting and validating parameters from Lambda events.
-
-
-## Core APIs
-
-### Parameter Extraction
-
-slat-io provides utilities for extracting and validating values from
-different parts of the Lambda event object.
-
 All parameter extraction functions support the following options:
 
 | Parameter | Type | Description |
@@ -198,7 +189,9 @@ All parameter extraction functions support the following options:
 | `pattern` | `str` | Regex pattern used for string validation |
 | `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
 
-### API List
+## API List
+
+Compatible with API Gateway payload format v1 and v2.
 
 ```python
 import slatio.parameter as param
@@ -215,6 +208,40 @@ param.get_header(...)
 # JSON body
 param.get_json_value(...)
 ```
+
+# Raising API errors explicitly
+
+In addition to automatic validation errors, you can raise HTTP-style API errors directly from your handler.
+
+```python
+from slatio.responder import api_handler, Unauthorized, NotFound, Conflict
+
+@api_handler
+def lambda_handler(event, context, respond):
+    if not validate_secret(event):
+        raise Unauthorized("Invalid Secret", "The provided secret is not valid.")
+
+    item = find_item(...)
+    if item is None:
+        raise NotFound("Item Not Found", "The requested item does not exist.")
+
+    return respond({"ok": True})
+```
+
+## Available API errors include:
+- `BadRequest` — **400 Bad Request**
+- `Unauthorized` — **401 Unauthorized**
+- `Forbidden` — **403 Forbidden**
+- `NotFound` — **404 Not Found**
+- `Conflict` — **409 Conflict**
+- `UnprocessableEntity` — **422 Unprocessable Entity**
+- `TooManyRequests` — **429 Too Many Requests**
+- `MethodNotAllowed` — **405 Method Not Allowed**
+- `UnsupportedMediaType` — **415 Unsupported Media Type**
+- `InternalServerError` — **500 Internal Server Error**
+- `BadGateway` — **502 Bad Gateway**
+- `ServiceUnavailable` — **503 Service Unavailable**
+- `GatewayTimeout` — **504 Gateway Timeout**
 
 # Installation
 
