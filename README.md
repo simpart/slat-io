@@ -180,28 +180,40 @@ slat-io provides utilities for extracting and validating parameters from Lambda 
 
 ## Core APIs
 
-### Path parameters
+### Parameter Extraction
+
+slat-io provides utilities for extracting and validating values from
+different parts of the Lambda event object.
+
+All parameter extraction functions support the following options:
+
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `event` | `Dict[str, Any]` | AWS Lambda event object |
+| `key` | `str` | Name of the parameter to extract |
+| `typ` | `Type` | Optional type casting (e.g. `int`, `float`, `bool`, `list`) |
+| `required` | `bool` | If `True`, raises an error when the value is missing |
+| `min` | `float` | Minimum allowed value for numeric parameters |
+| `max` | `float` | Maximum allowed value for numeric parameters |
+| `pattern` | `str` | Regex pattern used for string validation |
+| `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
+
+### API List
 
 ```python
-user_id = param.get_path(event, "userId", required=True)
-```
+import slatio.parameter as param
 
-### Query parameters
+# Path parameters
+param.get_path(...)
 
-```python
-page = param.get_query(event, "score", typ=float, min=0, max=5.0)
-```
+# Query parameters
+param.get_query(...)
 
-### Headers
+# Headers
+param.get_header(...)
 
-```python
-trace_id = param.get_header(event, "X-Trace-Id", required=True)
-```
-
-### JSON body
-
-```python
-email = param.get_json_value(event, "user.email", required=True)
+# JSON body
+param.get_json_value(...)
 ```
 
 # Installation
