@@ -21,7 +21,7 @@ from .decorator import api_handler
 # Standardized error classes for upstream/internal failures
 from .errors import (
     BadRequest, 
-    UnAuthorized, 
+    Unauthorized, 
     Forbidden, 
     NotFound, 
     Conflict, 
@@ -41,7 +41,7 @@ __all__ = [
     "api_response",
     "ApiError",
     "BadRequest",
-    "UnAuthorized",
+    "Unauthorized",
     "Forbidden",
     "NotFound",
     "Conflict",
