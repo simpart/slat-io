@@ -46,7 +46,7 @@ class ValueSpecification:
         pattern (str, optional): Regex pattern for string validation.
         choices (Sequence[Any], optional): A list of allowed values.
     """
-    typ: Type
+    typ: Optional[Type] = None
 
     # numeric constraints
     min: Optional[float] = None
@@ -58,6 +58,22 @@ class ValueSpecification:
     # enum constraint (works for str/int/bool etc.)
     choices: Optional[Sequence[Any]] = None
 
+
+    def __post_init__(self):
+
+        if (self.min is not None or self.max is not None):
+            if self.typ not in (int, float):
+                raise TypeError("min/max requires typ=int or typ=float")
+        
+        
+        if (self.pattern is not None) and not (self.typ is str):
+            raise TypeError("pattern requires typ=str")
+        
+        if (self.choices is not None) and (self.typ is None):
+             raise TypeError("choices requires typ to be specified")
+
+    
+    
     def _check_structure(self, val: Any, *, source: InputSource):
         """
         Performs preliminary type validation based on the input source.
@@ -178,7 +194,7 @@ class ValueSpecification:
 
 
 
-    def validate(self, val: Any) -> bool:
+    def validate(self, val: Any) -> None:
         """
         Enforces constraints (min/max, regex pattern, choices) on the value.
 
@@ -208,8 +224,7 @@ class ValueSpecification:
             if self.pattern is not None and re.fullmatch(self.pattern, val) is None:
                 raise BadRequest(message="Invalid Parameter", detail=f"must match the format '{self.pattern}'")
 
-        # list item_spec already validated in cast/parse via item_spec.parse()
-        return True
+
 
     def parse(self, val: Any, *, source: InputSource = InputSource.TEXT) -> tuple[Any, Optional[BadRequest]]:
         """
@@ -230,18 +245,19 @@ class ValueSpecification:
         
         if source is None:
             raise TypeError("source must be provided (InputSource.TEXT or InputSource.JSON)")
-
+        
         try:
             casted = val
-            # 型チェック
+            
             if self.typ is not None:
+                # type check
                 self._check_structure(val, source=source)
                 if source == InputSource.TEXT:
-                    # キャスト実施
+                    # cast value
                     casted = self.cast(val)
-
-            self.validate(casted)
-
+                    
+                self.validate(casted)
+                
             return casted, None
         except BadRequest as e:
             return None, e
