@@ -69,9 +69,6 @@ class ValueSpecification:
         if (self.pattern is not None) and not (self.typ is str):
             raise TypeError("pattern requires typ=str")
         
-        if (self.choices is not None) and (self.typ is None):
-             raise TypeError("choices requires typ to be specified")
-
     
     
     def _check_structure(self, val: Any, *, source: InputSource):
@@ -239,24 +236,21 @@ class ValueSpecification:
                 - On success: (CastedValue, None)
                 - On failure: (None, BadRequestInstance)
         """
-        # --- None check ---
-        if val is None:
-            return None, None
-        
         if source is None:
             raise TypeError("source must be provided (InputSource.TEXT or InputSource.JSON)")
         
         try:
             casted = val
             
-            if self.typ is not None:
+            #if self.typ is not None:
+            if val is not None and self.typ is not None:
                 # type check
                 self._check_structure(val, source=source)
                 if source == InputSource.TEXT:
                     # cast value
                     casted = self.cast(val)
-                    
-                self.validate(casted)
+                
+            self.validate(casted)
                 
             return casted, None
         except BadRequest as e:

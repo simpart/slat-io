@@ -271,9 +271,9 @@ def get_header(
     return result
 
 
-
-_CACHE_KEY = "_slat_io"          # event内のキャッシュ領域
-_BODY_CACHE_KEY = "json_body"     # パース済みbodyのキー
+# Internal cache keys used within the Lambda event object
+_CACHE_KEY = "_slat_io"
+_BODY_CACHE_KEY = "json_body"
 
 def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str, Any]:
     cache = event.setdefault(_CACHE_KEY, {})
@@ -282,11 +282,7 @@ def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str,
 
     body = _maybe_decode_body(event)
     if body is None or body == "":
-        if required:
-            raise BadRequest(message="Missing Parameter", detail="body is required")
-        parsed: Dict[str, Any] = {}
-        cache[_BODY_CACHE_KEY] = parsed
-        return parsed
+        raise BadRequest(message="Missing Parameter", detail="body is required")
 
     try:
         data = json.loads(body)
@@ -300,13 +296,15 @@ def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str,
     return data
 
 
+
+_MISSING = object()
 def _dig(payload: Any, path: str) -> Any:
     cur = payload
     for part in path.split("."):
         if isinstance(cur, dict) and part in cur:
             cur = cur[part]
         else:
-            return None
+            return _MISSING
     return cur
 
 
@@ -320,6 +318,7 @@ def get_json_value(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
+    nullable: bool = False
 ) -> Optional[Any]:
     """
     Extracts and validates a value from the JSON body using dot-notation path.
@@ -333,21 +332,27 @@ def get_json_value(
         json_path (str, optional): The dot-separated path to the desired value 
             (e.g., "user.profile.id"). If None or empty, returns the entire 
             parsed JSON body as a dict. Defaults to None.
-        typ (Type, optional): The expected Python type to cast the value. Defaults to None.
+        typ (Type, optional): The expected Python type for strict validation 
+            (e.g., int, str, bool). If the JSON value does not match this type, 
+            raises BadRequest. Defaults to None.
         required (bool, optional): If True, raises BadRequest if the JSON body 
-            is missing or the specified path does not exist. Defaults to False.
+            is missing or the specified path does not exist (presence check). Defaults to False.
         min (float, optional): Minimum value for numeric validation. Defaults to None.
         max (float, optional): Maximum value for numeric validation. Defaults to None.
         pattern (str, optional): Regex pattern for string validation. Defaults to None.
         choices (Sequence[Any], optional): A list of allowed values. Defaults to None.
+        nullable (bool, optional): If True, allows the value at the path to be 
+            explicitly `null` in JSON. If False and the value is `null`, 
+            raises BadRequest. Defaults to False.
 
     Returns:
-        Any: The validated and casted value. Returns None if the value is 
-            missing and `required` is False.
+        Any: The validated and casted value. 
+            - Returns None if the path is missing and `required` is False.
+            - Returns None if the value is explicitly `null` and `nullable` is True (or `None` is in `choices`).
 
     Raises:
         BadRequest: If the body is invalid JSON, the required path is missing, 
-            or the value fails validation.
+            the value is `null` when not allowed, or the value fails validation.
     """
 
     spec = ValueSpecification(
@@ -366,11 +371,19 @@ def get_json_value(
     else:
         # Traverse the dict using dot-notation
         val = _dig(payload, json_path)
-
-    if val is None:
+    
+    # missing
+    if val is _MISSING:
         if required:
             raise BadRequest(message="Missing Parameter", detail=f"{json_path} is required")
         return None
+    
+    # explicit null
+    if val is None:
+        if nullable:
+            return None
+        elif choices is None:
+            raise BadRequest(message="Invalid Parameter", detail=f"{json_path} must not be null")
 
     # Note: Using json_path for the error message instead of undefined 'key'
     result, error = spec.parse(val, source=InputSource.JSON)

@@ -72,6 +72,7 @@ slat-io removes repetitive event parsing, parameter validation, and response for
  - regex validation
  - value range
  - enum choices
+ - explicit null handling (nullable support)
  - automatic error responses
 
 
@@ -171,6 +172,7 @@ param.get_query(event, "mode", choices=["debug", "release"])
 param.get_path(event, "userId", pattern=r"^user_[a-z0-9]{8}$")
 param.get_header(event, "X-Request-Type", required=True)
 param.get_json_value(event, "profile.age", typ=int, min=0, max=120)
+param.get_json_value(event, "profile.bio", typ=str, nullable=True)
 ```
 
 
@@ -184,6 +186,7 @@ All parameter extraction functions support the following options:
 | `key` | `str` | Name of the parameter to extract |
 | `typ` | `Type` | Optional type casting (e.g. `int`, `float`, `bool`, `list`) |
 | `required` | `bool` | If `True`, raises an error when the value is missing |
+| `nullable` | `bool` | If `True`, allows the value to be explicitly null (JSON only). |
 | `min` | `float` | Minimum allowed value for numeric parameters |
 | `max` | `float` | Maximum allowed value for numeric parameters |
 | `pattern` | `str` | Regex pattern used for string validation |
