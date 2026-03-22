@@ -74,7 +74,7 @@ slat-io removes repetitive event parsing, parameter validation, and response for
  - enum choices
  - explicit null handling (nullable support)
  - automatic error responses
-
+ - explicit API error raising with consistent response formatting
 
 ## Automatic error handling
 
@@ -178,17 +178,36 @@ param.get_json_value(event, "profile.bio", typ=str, nullable=True)
 
 # Parameter Extraction
 slat-io provides utilities for extracting and validating parameters from Lambda events.
-All parameter extraction functions support the following options:
+The extraction logic is divided into two categories based on the nature of the input source: TEXT-based and JSON-based.
+
+
+## TEXT-based Parameters (Query, Path, Header)
+These utilities extract values from URL query strings, path parameters, and HTTP headers. Since these sources provide data as strings, the functions perform Type Coercion to convert them into your desired Python types.
+Functions: get_query, get_path, get_header
 
 | Parameter | Type | Description |
 |:--|:--|:--|
 | `event` | `Dict[str, Any]` | AWS Lambda event object |
 | `key` | `str` | Name of the parameter to extract |
 | `typ` | `Type` | Optional type casting (e.g. `int`, `float`, `bool`, `list`) |
-| `required` | `bool` | If `True`, raises an error when the value is missing |
-| `nullable` | `bool` | If `True`, allows the value to be explicitly null (JSON only). |
-| `min` | `float` | Minimum allowed value for numeric parameters |
-| `max` | `float` | Maximum allowed value for numeric parameters |
+| `required` | `bool` | If `True`, raises an error when the value is missing (default:True) |
+| `min /max` | `float` | range validation for numeric types. |
+| `pattern` | `str` | Regex pattern used for string validation |
+| `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
+
+
+## JSON-based Parameters (Body)
+These utilities extract values from the JSON request body. They support Dot-notation (e.g., user.profile.id) for deep extraction and provide specific handling for JSON null values.
+Functions: get_json_value, get_item_value
+
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `event` | `Dict[str, Any]` | AWS Lambda event object |
+| `json_path` | str	| Dot-separated path to the value (e.g., settings.theme).|
+| `typ` | `Type` | Optional type casting (e.g. `int`, `float`, `bool`, `list`) |
+| `nullable` | `bool` | If True, explicitly allows the JSON value to be null. |
+| `required` | `bool` | If `True`, raises an error when the value is missing (default:True) |
+| `min /max` | `float` | range validation for numeric types. |
 | `pattern` | `str` | Regex pattern used for string validation |
 | `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
 
@@ -210,6 +229,9 @@ param.get_header(...)
 
 # JSON body
 param.get_json_value(...)
+
+# Values inside extracted JSON items
+param.get_item_value(...)
 ```
 
 # Raising API errors explicitly

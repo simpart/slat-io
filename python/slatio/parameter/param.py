@@ -59,7 +59,7 @@ def get_query(
     key: str,
     *,
     typ: Type = str,
-    required: bool = False,
+    required: bool = True,
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
@@ -93,12 +93,8 @@ def get_query(
         BadRequest: If the parameter is missing (when required) or fails validation.
     """
     spec = ValueSpecification(
-                typ=typ,
-                min=min,
-                max=max,
-                pattern=pattern,
-                choices=choices,
-            )
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+    )
     
     # Support for both v1 (multiValueQueryStringParameters) and v2 (queryStringParameters)
     multi_params = event.get("multiValueQueryStringParameters") or {}
@@ -143,7 +139,7 @@ def get_path(
     key: str,
     *,
     typ: Type = str,
-    required: bool = False,
+    required: bool = True,
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
@@ -176,12 +172,8 @@ def get_path(
     """
 
     spec = ValueSpecification(
-                typ=typ,
-                min=min,
-                max=max,
-                pattern=pattern,
-                choices=choices,
-            )
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+    )
     
     # Both v1 and v2 use "pathParameters" for route variables.
     pp = event.get("pathParameters")
@@ -208,7 +200,7 @@ def get_header(
     key: str,
     *,
     typ: Type = str,
-    required: bool = False,
+    required: bool = True,
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
@@ -241,12 +233,8 @@ def get_header(
     """
 
     spec = ValueSpecification(
-                typ=typ,
-                min=min,
-                max=max,
-                pattern=pattern,
-                choices=choices,
-            )
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices
+    )
     
     # Normalize headers to ensure case-insensitive lookup
     headers = _headers_dict(event)
@@ -289,9 +277,6 @@ def _get_cached_json_body(event: Dict[str, Any], *, required: bool) -> Dict[str,
     except Exception:
         raise BadRequest(message="Invalid Parameter", detail="body must be valid json")
 
-    if not isinstance(data, dict):
-        raise BadRequest(message="Invalid Parameter", detail="body value must be a json object")
-
     cache[_BODY_CACHE_KEY] = data
     return data
 
@@ -313,7 +298,7 @@ def get_json_value(
     json_path: Optional[str] = None,
     *,
     typ: Type = None,
-    required: bool = False,
+    required: bool = True,
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
@@ -356,12 +341,8 @@ def get_json_value(
     """
 
     spec = ValueSpecification(
-                typ=typ,
-                min=min,
-                max=max,
-                pattern=pattern,
-                choices=choices,
-            )
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+    )
     
     # Retrieve the body from cache, or parse it if this is the first call.
     payload = _get_cached_json_body(event, required=required)
@@ -389,6 +370,74 @@ def get_json_value(
     result, error = spec.parse(val, source=InputSource.JSON)
     if error:
         error.detail = f"parameter '{json_path}': {error.detail}"
+        raise error
+
+    return result
+
+
+def get_item_value(
+    item: Any,
+    itm_path: Optional[str] = None,
+    *,
+    typ: Optional[Type] = None,
+    required: bool = True,
+    nullable: bool = False,
+    min: Optional[float] = None,
+    max: Optional[float] = None,
+    pattern: Optional[str] = None,
+    choices: Optional[Sequence[Any]] = None,
+) -> Any:
+    """
+    Extracts and validates a value from a JSON-like item using dot-notation.
+
+    This function is intended for use after manually extracting a list or object,
+    such as when iterating over elements returned by `get_json_value(..., typ=list)`.
+    It applies strict JSON-style validation and does not perform TEXT-style casting.
+
+    Args:
+        item (Any): A JSON-like value, typically a dict representing a single item.
+        itm_path (str, optional): Dot-separated path to the target value within the item
+            (e.g., "profile.id"). If omitted or empty, the item itself is validated.
+        typ (Type, optional): Expected Python type for strict validation.
+        required (bool, optional): If True, raises BadRequest when the path is missing.
+            Defaults to True.
+        nullable (bool, optional): If True, allows the target value to be null.
+            Defaults to False.
+        min (float, optional): Minimum allowed value for numeric types.
+        max (float, optional): Maximum allowed value for numeric types.
+        pattern (str, optional): Regex pattern used for string validation.
+        choices (Sequence[Any], optional): Restricts the value to a predefined set.
+
+    Returns:
+        Any: The validated value. Returns None when the path is missing and `required`
+        is False, or when the value is null and `nullable` is True.
+
+    Raises:
+        BadRequest: If the path is missing, the value is null when not allowed,
+            or the value fails validation.
+    """
+    val = item
+    if itm_path:
+        val = _dig(item, itm_path)
+
+    if val is _MISSING:
+        if required:
+            raise BadRequest(message="Missing Parameter", detail=f"{itm_path} is required")
+        return None
+
+    if val is None:
+        if nullable:
+            return None
+        elif choices is None:
+            raise BadRequest(message="Invalid Parameter", detail=f"{itm_path} must not be null")    
+
+    spec = ValueSpecification(
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+    )
+
+    result, error = spec.parse(val, source=InputSource.JSON)
+    if error:
+        error.detail = f"parameter '{itm_path}': {error.detail}"
         raise error
 
     return result
