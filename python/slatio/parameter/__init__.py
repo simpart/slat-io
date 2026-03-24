@@ -15,8 +15,8 @@ from .param import (
     get_query,
     get_path,
     get_header,
-    get_json_value,
-    get_item_value
+    get_json,
+    get_item
 )
 from .value_specification import (
     ValueSpecification,
@@ -28,8 +28,8 @@ __all__ = [
     "get_query",
     "get_path",
     "get_header",
-    "get_json_value",
-    "get_item_value",
+    "get_json",
+    "get_item",
     "ValueSpecification",
     "InputSource",
  ]

@@ -45,6 +45,7 @@ class ValueSpecification:
         choices (Sequence[Any], optional): A list of allowed values.
         scalar_as_list (bool): If True and typ is list[T], automatically wraps 
                                a single scalar value into a list if it matches type T.
+        max_len (int, optional): Maximum number of items allowed in a list.
     """
     typ: Optional[Type] = None
 
@@ -63,7 +64,10 @@ class ValueSpecification:
 
     # Internal properties for generic list handling
     _item_typ: Optional[Type] = field(init=False, default=None)
-
+    
+    # list size constraints (number of items)
+    max_len: Optional[int] = None
+    
     def __post_init__(self):
         # Extract the item type T if typ is a generic list (e.g., list[int])
         origin = get_origin(self.typ)
@@ -263,13 +267,18 @@ class ValueSpecification:
             BadRequest: If any constraint (choices, numeric range, or regex) 
                 is violated.
         """
-        # Handle recursive validation for list[T]
-        if not is_item and self._item_typ is not None:
-            if isinstance(val, list):
-                for item in val:
-                    # Validate each element individually
-                    self._validate(item, is_item=True)
-                return
+        if not is_item:
+            # validate the number of items for list
+            if isinstance(val, list) and self.max_len is not None and len(val) > self.max_len:
+                raise BadRequest(message="Invalid Parameter", detail=f"must have no more than {self.max_len} items")
+                
+            # If typ=list[T] is specified, validate each element in the list recursively.
+            if self._item_typ is not None:
+                if isinstance(val, list):
+                    for item in val:
+                        # Validate each element individually
+                        self._validate(item, is_item=True)
+                    return
 
         # Choices constraint (applies to both scalars and list elements)
         if self.choices is not None and val not in self.choices:

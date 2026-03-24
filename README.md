@@ -167,13 +167,22 @@ def lambda_handler(event, context, respond):
 ## Validation examples
 
 ```python
+# --- query / path / header ---
 param.get_query(event, "page", typ=int, min=1)
 param.get_query(event, "mode", choices=["debug", "release"])
+param.get_query(event, "user_list", typ=list[str], pattern=r"^[A-Z]-[0-9]{3}$", max_len=1)
 param.get_path(event, "userId", pattern=r"^user_[a-z0-9]{8}$")
 param.get_header(event, "X-Request-Type", required=True)
-param.get_json_value(event, "profile.age", typ=int, min=0, max=120)
-param.get_json_value(event, "profile.bio", typ=str, nullable=True)
-param.get_json_value(event, "user_list", typ=list[str], pattern=r"^[A-Z]-[0-9]{3}$")
+
+# --- json (body) ---
+param.get_json(event, "profile.age", typ=int, min=0, max=120)
+param.get_json(event, "profile.bio", typ=str, nullable=True)
+param.get_json(event, "user_list", typ=list[str], pattern=r"^[A-Z]-[0-9]{3}$", max_len=50)
+
+# --- item (post-extraction validation) ---
+for user in users:
+    user_id = param.get_item(user, "id", pattern=r"^user_[a-z0-9]{8}$")
+    age = param.get_item(user, "profile.age", typ=int, min=0, max=120)
 ```
 
 
@@ -196,10 +205,11 @@ Functions: get_query, get_path, get_header
 | `pattern` | `str` | Regex pattern used for string validation |
 | `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
 | `scalar_as_list` | bool | If True and typ is list[T], wraps a single string into a list. Default: False. (get_query only) |
+| `max_len` | int | List size validation. Maximum number of items allowed in the list. (get_query only) |
 
 ## JSON-based Parameters (Body)
 These utilities extract values from the JSON request body. They support Dot-notation (e.g., user.profile.id) for deep extraction and provide specific handling for JSON null values.
-Functions: get_json_value, get_item_value
+Functions: get_json, get_item_value
 
 | Parameter | Type | Description |
 |:--|:--|:--|
@@ -212,6 +222,7 @@ Functions: get_json_value, get_item_value
 | `pattern` | `str` | Regex pattern used for string validation |
 | `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
 | `scalar_as_list` | bool | If True and typ is list[T], wraps a single string into a list. Default: False. |
+| `max_len` | int | List size validation. Maximum number of items allowed in the list. |
 
 ## API List
 
@@ -230,7 +241,7 @@ param.get_query(...)
 param.get_header(...)
 
 # JSON body
-param.get_json_value(...)
+param.get_json(...)
 
 # Values inside extracted JSON items
 param.get_item_value(...)

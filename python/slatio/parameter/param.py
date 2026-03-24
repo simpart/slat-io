@@ -62,7 +62,8 @@ def get_query(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-    scalar_as_list: bool = False
+    scalar_as_list: bool = False,
+    max_len: Optional[int] = None
 ) -> Optional[Any]:
     """
     Extracts and validates a query parameter from the Lambda event.
@@ -81,6 +82,7 @@ def get_query(
         choices (Sequence[Any], optional): A list of allowed values. Defaults to None.
         scalar_as_list (bool, optional): If True, ensures the returned value is always 
             a list. Requires 'typ' to be an explicit generic list (e.g., list[int]). Defaults to False.
+        max_len (int, optional): max_len (int, optional): Maximum number of items allowed in a list.
 
     Returns:
         Optional[Any]: The validated and casted value.
@@ -89,7 +91,8 @@ def get_query(
         BadRequest: If the parameter is missing (when required) or fails validation.
     """
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices, scalar_as_list=scalar_as_list
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        scalar_as_list=scalar_as_list, max_len=max_len
     )
     
     # Support for both v1 (multiValueQueryStringParameters) and v2 (queryStringParameters)
@@ -287,7 +290,7 @@ def _dig(payload: Any, path: str) -> Any:
     return cur
 
 
-def get_json_value(
+def get_json(
     event: Dict[str, Any],
     json_path: Optional[str] = None,
     *,
@@ -298,7 +301,8 @@ def get_json_value(
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
     nullable: bool = False,
-    scalar_as_list: bool = False
+    scalar_as_list: bool = False,
+    max_len: Optional[int] = None
 ) -> Optional[Any]:
     """
     Extracts and validates a value from the JSON body using dot-notation path.
@@ -326,6 +330,7 @@ def get_json_value(
             raises BadRequest. Defaults to False.
         scalar_as_list (bool, optional): If True, ensures the returned value is always 
             a list. Requires 'typ' to be an explicit generic list (e.g., list[int]). Defaults to False.
+        max_len (int, optional): max_len (int, optional): Maximum number of items allowed in a list.
 
     Returns:
         Any: The validated and casted value. 
@@ -338,7 +343,8 @@ def get_json_value(
     """
 
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices, scalar_as_list=scalar_as_list
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        scalar_as_list=scalar_as_list, max_len=max_len
     )
     
     # Retrieve the body from cache, or parse it if this is the first call.
@@ -372,7 +378,7 @@ def get_json_value(
     return result
 
 
-def get_item_value(
+def get_item(
     item: Any,
     itm_path: Optional[str] = None,
     *,
@@ -383,13 +389,14 @@ def get_item_value(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-    scalar_as_list: bool = False
+    scalar_as_list: bool = False,
+    max_len: Optional[int] = None
 ) -> Optional[Any]:
     """
     Extracts and validates a value from a JSON-like item using dot-notation.
 
     This function is intended for use after manually extracting a list or object,
-    such as when iterating over elements returned by `get_json_value(..., typ=list)`.
+    such as when iterating over elements returned by `get_json(..., typ=list)`.
     It applies strict JSON-style validation and does not perform TEXT-style casting.
 
     Args:
@@ -407,6 +414,7 @@ def get_item_value(
         choices (Sequence[Any], optional): Restricts the value to a predefined set.
         scalar_as_list (bool, optional): If True, ensures the returned value is always 
             a list. Requires 'typ' to be an explicit generic list (e.g., list[int]). Defaults to False.
+        max_len (int, optional): max_len (int, optional): Maximum number of items allowed in a list.
 
     Returns:
         Optional[Any]: The validated value. Returns None when the path is missing and `required` is False,
@@ -432,7 +440,8 @@ def get_item_value(
             raise BadRequest(message="Invalid Parameter", detail=f"{itm_path} must not be null")    
 
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices, scalar_as_list=scalar_as_list
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        scalar_as_list=scalar_as_list, max_len=max_len
     )
 
     result, error = spec.parse(val, source=InputSource.JSON)
