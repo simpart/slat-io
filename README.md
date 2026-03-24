@@ -173,6 +173,7 @@ param.get_path(event, "userId", pattern=r"^user_[a-z0-9]{8}$")
 param.get_header(event, "X-Request-Type", required=True)
 param.get_json_value(event, "profile.age", typ=int, min=0, max=120)
 param.get_json_value(event, "profile.bio", typ=str, nullable=True)
+param.get_json_value(event, "user_list", typ=list[str], pattern=r"^[A-Z]-[0-9]{3}$")
 ```
 
 
@@ -194,7 +195,7 @@ Functions: get_query, get_path, get_header
 | `min /max` | `float` | range validation for numeric types. |
 | `pattern` | `str` | Regex pattern used for string validation |
 | `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
-
+| `scalar_as_list` | bool | If True and typ is list[T], wraps a single string into a list. Default: False. (get_query only) |
 
 ## JSON-based Parameters (Body)
 These utilities extract values from the JSON request body. They support Dot-notation (e.g., user.profile.id) for deep extraction and provide specific handling for JSON null values.
@@ -210,6 +211,7 @@ Functions: get_json_value, get_item_value
 | `min /max` | `float` | range validation for numeric types. |
 | `pattern` | `str` | Regex pattern used for string validation |
 | `choices` | `Sequence[Any]` | Restricts the value to a predefined set |
+| `scalar_as_list` | bool | If True and typ is list[T], wraps a single string into a list. Default: False. |
 
 ## API List
 

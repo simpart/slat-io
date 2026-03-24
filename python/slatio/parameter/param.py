@@ -1,6 +1,4 @@
 """
-Kusabi Parameter Extraction Logic
-
 This module provides high-level utilities for extracting and validating
 parameters from AWS Lambda event objects. It is fully compatible with
 API Gateway Payload Format v1.0 and v2.0.
@@ -64,6 +62,7 @@ def get_query(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
+    scalar_as_list: bool = False
 ) -> Optional[Any]:
     """
     Extracts and validates a query parameter from the Lambda event.
@@ -80,20 +79,17 @@ def get_query(
         max (float, optional): Maximum value for numeric validation. Defaults to None.
         pattern (str, optional): Regex pattern for string validation. Defaults to None.
         choices (Sequence[Any], optional): A list of allowed values. Defaults to None.
+        scalar_as_list (bool, optional): If True, ensures the returned value is always 
+            a list. Requires 'typ' to be an explicit generic list (e.g., list[int]). Defaults to False.
 
     Returns:
-        Union[None, str, List[str]]: The validated value. 
-            - Returns a `str` if a single value is found.
-            - Returns a `List[str]` if multiple values are detected.
-            - Performs "Smart Coercion": 
-                - Automatically converts single-element lists to a scalar string.
-                - Splits comma-separated strings into a list for convenience.
+        Optional[Any]: The validated and casted value.
 
     Raises:
         BadRequest: If the parameter is missing (when required) or fails validation.
     """
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices, scalar_as_list=scalar_as_list
     )
     
     # Support for both v1 (multiValueQueryStringParameters) and v2 (queryStringParameters)
@@ -143,7 +139,7 @@ def get_path(
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
-    choices: Optional[Sequence[Any]] = None,
+    choices: Optional[Sequence[Any]] = None
 ) -> Optional[Any]:
     """
     Extracts and validates a path parameter from the Lambda event.
@@ -163,8 +159,7 @@ def get_path(
         choices (Sequence[Any], optional): A list of allowed values. Defaults to None.
 
     Returns:
-        Optional[Any]: The validated and casted value. Returns None if the parameter 
-            is missing and `required` is False.
+        Optional[Any]: The validated and casted value.
 
     Raises:
         BadRequest: If the parameter is missing (when required) or fails validation 
@@ -172,7 +167,7 @@ def get_path(
     """
 
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices
     )
     
     # Both v1 and v2 use "pathParameters" for route variables.
@@ -204,8 +199,8 @@ def get_header(
     min: Optional[float] = None,
     max: Optional[float] = None,
     pattern: Optional[str] = None,
-    choices: Optional[Sequence[Any]] = None,
-) -> Any:
+    choices: Optional[Sequence[Any]] = None
+) -> Optional[Any]:
     """
     Extracts and validates an HTTP header from the Lambda event.
 
@@ -225,8 +220,7 @@ def get_header(
         choices (Sequence[Any], optional): A list of allowed values. Defaults to None.
 
     Returns:
-        Any: The validated and casted value. Returns None if the header is 
-            missing and `required` is False.
+        Optional[Any]: The validated and casted value.
 
     Raises:
         BadRequest: If the header is missing (when required) or fails validation.
@@ -303,7 +297,8 @@ def get_json_value(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-    nullable: bool = False
+    nullable: bool = False,
+    scalar_as_list: bool = False
 ) -> Optional[Any]:
     """
     Extracts and validates a value from the JSON body using dot-notation path.
@@ -329,6 +324,8 @@ def get_json_value(
         nullable (bool, optional): If True, allows the value at the path to be 
             explicitly `null` in JSON. If False and the value is `null`, 
             raises BadRequest. Defaults to False.
+        scalar_as_list (bool, optional): If True, ensures the returned value is always 
+            a list. Requires 'typ' to be an explicit generic list (e.g., list[int]). Defaults to False.
 
     Returns:
         Any: The validated and casted value. 
@@ -341,7 +338,7 @@ def get_json_value(
     """
 
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices, scalar_as_list=scalar_as_list
     )
     
     # Retrieve the body from cache, or parse it if this is the first call.
@@ -386,7 +383,8 @@ def get_item_value(
     max: Optional[float] = None,
     pattern: Optional[str] = None,
     choices: Optional[Sequence[Any]] = None,
-) -> Any:
+    scalar_as_list: bool = False
+) -> Optional[Any]:
     """
     Extracts and validates a value from a JSON-like item using dot-notation.
 
@@ -407,10 +405,12 @@ def get_item_value(
         max (float, optional): Maximum allowed value for numeric types.
         pattern (str, optional): Regex pattern used for string validation.
         choices (Sequence[Any], optional): Restricts the value to a predefined set.
+        scalar_as_list (bool, optional): If True, ensures the returned value is always 
+            a list. Requires 'typ' to be an explicit generic list (e.g., list[int]). Defaults to False.
 
     Returns:
-        Any: The validated value. Returns None when the path is missing and `required`
-        is False, or when the value is null and `nullable` is True.
+        Optional[Any]: The validated value. Returns None when the path is missing and `required` is False,
+            or when the value is null and `nullable` is True.
 
     Raises:
         BadRequest: If the path is missing, the value is null when not allowed,
@@ -432,7 +432,7 @@ def get_item_value(
             raise BadRequest(message="Invalid Parameter", detail=f"{itm_path} must not be null")    
 
     spec = ValueSpecification(
-        typ=typ, min=min, max=max, pattern=pattern, choices=choices,
+        typ=typ, min=min, max=max, pattern=pattern, choices=choices, scalar_as_list=scalar_as_list
     )
 
     result, error = spec.parse(val, source=InputSource.JSON)
@@ -441,3 +441,4 @@ def get_item_value(
         raise error
 
     return result
+
